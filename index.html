@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Site Monitor</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e8e8;
+    --text2: #888;
+    --text3: #555;
+    --green: #3a3;
+    --green-bg: rgba(51,170,51,0.12);
+    --green-text: #5c5;
+    --yellow: #c90;
+    --yellow-bg: rgba(204,153,0,0.12);
+    --yellow-text: #db0;
+    --red: #c33;
+    --red-bg: rgba(204,51,51,0.12);
+    --red-text: #e55;
+    --blue: #39f;
+    --mono: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', 'Consolas', monospace;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; min-height: 100vh; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1.25rem; }
+
+  /* header */
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; flex-wrap: wrap; }
+  .header-title { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text2); display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; display: inline-block; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(51,170,51,0.4)} 50%{opacity:0.5;box-shadow:0 0 0 6px rgba(51,170,51,0)} }
+
+  /* add form */
+  .add-form { display: flex; gap: 8px; flex: 2; min-width: 240px; }
+  .add-form input {
+    flex: 1; font-family: var(--mono); font-size: 13px;
+    padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg2); color: var(--text); outline: none; transition: border-color 0.2s;
+  }
+  .add-form input:focus { border-color: var(--blue); }
+  .add-form input::placeholder { color: var(--text3); }
+  button {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    padding: 8px 14px; border: 1px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg2); color: var(--text); cursor: pointer;
+    letter-spacing: 0.04em; transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+  }
+  button:hover { background: var(--bg3); border-color: rgba(255,255,255,0.22); }
+  button:active { transform: scale(0.97); }
+  .btn-danger { border-color: var(--red); color: var(--red-text); }
+  .btn-danger:hover { background: var(--red-bg); }
+
+  /* stats */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 600; color: var(--text); }
+  .stat-value.green { color: var(--green-text); }
+  .stat-value.yellow { color: var(--yellow-text); }
+  .stat-value.red { color: var(--red-text); }
+
+  /* auto refresh */
+  .auto-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text2); margin-bottom: 1rem; flex-wrap: wrap; }
+  .auto-row select {
+    font-family: var(--mono); font-size: 12px; padding: 5px 8px;
+    border: 1px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg2); color: var(--text); cursor: pointer;
+  }
+  .countdown { color: var(--text3); }
+
+  /* cards */
+  .monitors { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px 16px; border-left-width: 3px; transition: border-color 0.3s;
+  }
+  .card.up    { border-left-color: var(--green); }
+  .card.slow  { border-left-color: var(--yellow); }
+  .card.down  { border-left-color: var(--red); }
+  .card.checking { border-left-color: var(--border2); }
+  .card-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .badge {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 99px; min-width: 76px; text-align: center;
+  }
+  .badge.up    { background: var(--green-bg); color: var(--green-text); }
+  .badge.slow  { background: var(--yellow-bg); color: var(--yellow-text); }
+  .badge.down  { background: var(--red-bg); color: var(--red-text); }
+  .badge.checking { background: var(--bg3); color: var(--text3); }
+  .card-url { font-size: 13px; color: var(--text); flex: 1; word-break: break-all; min-width: 120px; }
+  .card-url a { color: var(--blue); text-decoration: none; }
+  .card-url a:hover { text-decoration: underline; }
+  .card-actions { display: flex; gap: 6px; }
+  .card-actions button { font-size: 11px; padding: 5px 10px; }
+  .card-meta { display: flex; gap: 20px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .meta-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+  .meta-value { font-size: 13px; color: var(--text); }
+  .meta-value.green { color: var(--green-text); }
+  .meta-value.yellow { color: var(--yellow-text); }
+  .meta-value.red { color: var(--red-text); }
+  .sparkline { flex: 1; min-width: 120px; height: 30px; }
+  .sparkline svg { width: 100%; height: 100%; }
+
+  /* empty */
+  .empty {
+    text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 13px;
+    border: 1px dashed var(--border2); border-radius: var(--radius-lg);
+  }
+
+  /* log */
+  .log-section { margin-top: 2rem; }
+  .log-header { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .log-list { font-size: 12px; color: var(--text2); display: flex; flex-direction: column; gap: 3px; max-height: 130px; overflow-y: auto; }
+  .log-entry { display: flex; gap: 10px; }
+  .log-time { color: var(--text3); min-width: 56px; }
+  .log-msg.up { color: var(--green-text); }
+  .log-msg.slow { color: var(--yellow-text); }
+  .log-msg.down { color: var(--red-text); }
+
+  @media (max-width: 520px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .header { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title"><span class="pulse"></span> Site Monitor</div>
+    <div class="add-form">
+      <input id="urlInput" type="text" placeholder="https://example.com" />
+      <button onclick="addMonitor()">+ Add</button>
+      <button onclick="checkAll()">Check All</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">0</div></div>
+    <div class="stat"><div class="stat-label">Online</div><div class="stat-value green" id="statUp">0</div></div>
+    <div class="stat"><div class="stat-label">Slow</div><div class="stat-value yellow" id="statSlow">0</div></div>
+    <div class="stat"><div class="stat-label">Down</div><div class="stat-value red" id="statDown">0</div></div>
+  </div>
+
+  <!-- Auto refresh -->
+  <div class="auto-row">
+    <span>Auto-refresh:</span>
+    <select id="autoInterval" onchange="setAutoRefresh()">
+      <option value="0">Off</option>
+      <option value="30">30s</option>
+      <option value="60" selected>1 min</option>
+      <option value="300">5 min</option>
+    </select>
+    <span class="countdown" id="countdown"></span>
+    <button onclick="addDefaults()" style="margin-left:auto;font-size:11px;padding:5px 10px;">Load examples</button>
+  </div>
+
+  <!-- Monitor cards -->
+  <div class="monitors" id="monitorList"></div>
+  <div class="empty" id="emptyState">No sites added yet. Enter a URL above or click "Load examples".</div>
+
+  <!-- Log -->
+  <div class="log-section" id="logSection" style="display:none">
+    <div class="log-header">Activity log</div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+</div>
+
+<script>
+const TIMEOUT_SLOW = 4000;
+const TIMEOUT_DEAD = 10000;
+
+let monitors = [];
+let logs = [];
+let autoTimer = null;
+let countdownVal = 0;
+let countdownTimer = null;
+
+const DEFAULTS = ['https://google.com', 'https://github.com', 'https://cloudflare.com'];
+
+function addDefaults() {
+  DEFAULTS.forEach(u => { if (!monitors.find(m => m.url === u)) _add(u); });
+}
+
+function addMonitor(url) {
+  const input = document.getElementById('urlInput');
+  let u = url || input.value.trim();
+  if (!u) return;
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  if (monitors.find(m => m.url === u)) { if (!url) input.value = ''; return; }
+  if (!url) input.value = '';
+  _add(u);
+}
+
+function _add(u) {
+  const id = Date.now() + Math.random();
+  monitors.push({ id, url: u, status: 'checking', responseTime: null, lastChecked: null, history: [] });
+  renderAll();
+  checkMonitor(id);
+}
+
+function removeMonitor(id) {
+  monitors = monitors.filter(m => m.id !== id);
+  renderAll();
+}
+
+async function checkMonitor(id) {
+  const m = monitors.find(x => x.id === id);
+  if (!m) return;
+  m.status = 'checking';
+  m.responseTime = null;
+  renderAll();
+
+  const start = Date.now();
+  let status = 'down';
+  let rt = null;
+
+  const slowTimer = setTimeout(() => {
+    const cur = monitors.find(x => x.id === id);
+    if (cur && cur.status === 'checking') { cur.status = 'slow'; renderAll(); }
+  }, TIMEOUT_SLOW);
+
+  try {
+    const controller = new AbortController();
+    const deadTimer = setTimeout(() => controller.abort(), TIMEOUT_DEAD);
+    await fetch(m.url, { mode: 'no-cors', signal: controller.signal, cache: 'no-store' });
+    clearTimeout(deadTimer);
+    rt = Date.now() - start;
+    status = rt > TIMEOUT_SLOW ? 'slow' : 'up';
+  } catch (e) {
+    rt = Date.now() - start;
+    status = rt >= TIMEOUT_DEAD - 300 ? 'down' : (rt > TIMEOUT_SLOW ? 'slow' : 'down');
+  }
+
+  clearTimeout(slowTimer);
+  const cur = monitors.find(x => x.id === id);
+  if (!cur) return;
+  cur.status = status;
+  cur.responseTime = rt;
+  cur.lastChecked = new Date();
+  cur.history = [...(cur.history || []).slice(-19), { status, rt }];
+  addLog(cur.url, status, rt);
+  renderAll();
+}
+
+function checkAll() { monitors.forEach(m => checkMonitor(m.id)); }
+
+function addLog(url, status, rt) {
+  let host = url; try { host = new URL(url).hostname; } catch(e){}
+  const t = new Date().toTimeString().slice(0, 8);
+  const msg = status === 'up' ? `${host} — online (${rt}ms)` : status === 'slow' ? `${host} — slow response (${rt}ms)` : `${host} — unreachable`;
+  logs.unshift({ t, msg, status });
+  if (logs.length > 50) logs.pop();
+}
+
+function sparklineSVG(history) {
+  if (!history || history.length < 2) return '';
+  const rts = history.map(h => h.rt || 0);
+  const mx = Math.max(...rts, 1);
+  const W = 100, H = 30, P = 2;
+  const pts = rts.map((v, i) => {
+    const x = P + (i / (rts.length - 1)) * (W - P * 2);
+    const y = H - P - (v / mx) * (H - P * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const last = history[history.length - 1];
+  const col = last.status === 'up' ? '#3a3' : last.status === 'slow' ? '#c90' : '#c33';
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+function buildCard(m) {
+  let host = m.url; try { host = new URL(m.url).hostname; } catch(e){}
+  const badgeText = { up: 'Online', slow: 'Slow', down: 'Down', checking: '···' }[m.status] || '···';
+  const rtClass = m.status === 'up' ? 'green' : m.status === 'slow' ? 'yellow' : m.status === 'down' ? 'red' : '';
+  const rtText = m.responseTime != null ? m.responseTime + ' ms' : '—';
+  const checkedText = m.lastChecked ? m.lastChecked.toTimeString().slice(0, 8) : 'never';
+  return `
+    <div class="card ${m.status}" id="card-${m.id}">
+      <div class="card-top">
+        <span class="badge ${m.status}">${badgeText}</span>
+        <span class="card-url"><a href="${m.url}" target="_blank" rel="noopener">${host}</a></span>
+        <div class="card-actions">
+          <button onclick="checkMonitor(${m.id})">↺ Check</button>
+          <button class="btn-danger" onclick="removeMonitor(${m.id})">✕</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div class="meta-item"><span class="meta-label">Response</span><span class="meta-value ${rtClass}">${rtText}</span></div>
+        <div class="meta-item"><span class="meta-label">Last check</span><span class="meta-value">${checkedText}</span></div>
+        <div class="meta-item"><span class="meta-label">Checks</span><span class="meta-value">${m.history.length}</span></div>
+        <div class="sparkline">${sparklineSVG(m.history)}</div>
+      </div>
+    </div>`;
+}
+
+function renderAll() {
+  const list = document.getElementById('monitorList');
+  const empty = document.getElementById('emptyState');
+  const logSec = document.getElementById('logSection');
+  const logEl = document.getElementById('logList');
+  empty.style.display = monitors.length ? 'none' : '';
+  list.innerHTML = monitors.map(buildCard).join('');
+  const up = monitors.filter(m => m.status === 'up').length;
+  const slow = monitors.filter(m => m.status === 'slow').length;
+  const down = monitors.filter(m => m.status === 'down').length;
+  document.getElementById('statTotal').textContent = monitors.length;
+  document.getElementById('statUp').textContent = up;
+  document.getElementById('statSlow').textContent = slow;
+  document.getElementById('statDown').textContent = down;
+  logSec.style.display = logs.length ? '' : 'none';
+  logEl.innerHTML = logs.map(l =>
+    `<div class="log-entry"><span class="log-time">${l.t}</span><span class="log-msg ${l.status}">${l.msg}</span></div>`
+  ).join('');
+}
+
+function setAutoRefresh() {
+  const val = parseInt(document.getElementById('autoInterval').value);
+  if (autoTimer) clearInterval(autoTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  document.getElementById('countdown').textContent = '';
+  if (!val) return;
+  countdownVal = val;
+  updateCountdown();
+  autoTimer = setInterval(() => { checkAll(); countdownVal = val; }, val * 1000);
+  countdownTimer = setInterval(() => { countdownVal = Math.max(0, countdownVal - 1); updateCountdown(); }, 1000);
+}
+
+function updateCountdown() {
+  document.getElementById('countdown').textContent = countdownVal > 0 ? `next in ${countdownVal}s` : '';
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') addMonitor(); });
+renderAll();
+setAutoRefresh();
+</script>
+</body>
+</html>
